@@ -3,7 +3,7 @@ from pathlib import Path
 import yaml
 from datetime import datetime
 import subprocess
-from PIL import Image
+from PIL import Image, ImageFilter, ImageOps
 import re
 import uuid
 
@@ -23,11 +23,25 @@ IMAGES_DIR = Path("content/images/galleries")
 GALLERY_DIR.mkdir(parents=True, exist_ok=True)
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
-MAX_WIDTH = CONFIG.get("images", {}).get("max_width", 2400)
-MAX_HEIGHT = CONFIG.get("images", {}).get("max_height", 2400)
-DISPLAY_QUALITY = CONFIG.get("images", {}).get("display_quality", 85)
+MAX_WIDTH = CONFIG.get("images", {}).get("max_width", 3000)
+DISPLAY_QUALITY = CONFIG.get("images", {}).get("display_quality", 80)
 
 app = Flask(__name__)
+
+
+def normalize_upload(file_stream):
+    """Open an uploaded image, honor EXIF orientation, downscale to
+    MAX_WIDTH (preserving aspect; no height cap), and apply a gentle
+    unsharp mask when we actually resized so the result stays crisp."""
+    img = Image.open(file_stream)
+    img = ImageOps.exif_transpose(img)
+    img = img.convert("RGB")
+    w, h = img.size
+    if w > MAX_WIDTH:
+        new_h = round(h * MAX_WIDTH / w)
+        img = img.resize((MAX_WIDTH, new_h), Image.LANCZOS)
+        img = img.filter(ImageFilter.UnsharpMask(radius=1.0, percent=80, threshold=2))
+    return img
 
 
 def slugify(value):
@@ -231,9 +245,7 @@ def api_upload_image(slug):
     for file in request.files.getlist("files"):
         unique_name = f"{uuid.uuid4().hex}.jpg"
         save_path = folder / unique_name
-        img = Image.open(file.stream)
-        img = img.convert("RGB")
-        img.thumbnail((MAX_WIDTH, MAX_HEIGHT), Image.LANCZOS)
+        img = normalize_upload(file.stream)
         img.save(save_path, "JPEG", quality=DISPLAY_QUALITY, optimize=True)
         uploaded.append({"filename": save_path.name, "size": save_path.stat().st_size})
     # Reconcile the frontmatter so newly uploaded photos appear in the order

@@ -21,10 +21,13 @@ editor:
   port: 5001
 
 images:
-  # Maximum dimensions for the "display" copy of each photo (full-page view).
-  max_width: 2400
-  max_height: 2400
-  display_quality: 85
+  # Editor + build cap: each uploaded photo is downscaled so its width
+  # is at most max_width (aspect preserved, no height cap), saved as
+  # JPEG at display_quality with EXIF orientation applied and a small
+  # unsharp mask after resize.
+  max_width: 3000
+  max_height: 3000
+  display_quality: 80
   # Thumbnail (gallery grid) size and quality.
   thumb_width: 480
   thumb_height: 480
