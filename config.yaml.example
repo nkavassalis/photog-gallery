@@ -1,0 +1,31 @@
+website:
+  title: "photog.jp"
+  description: "Nick's photo galleries."
+  base_url: "https://photog.jp"
+  subtitle: |
+    <a href='https://root.wtf'>bio</a>
+    <a href='https://baka.jp'>blog</a>
+    <a href='https://bsky.app/profile/nkavassalis.bsky.social'>social</a>
+    <a href='mailto:nick@photog.jp'>email</a>
+  footer: |
+    (c) Nick Kavassalis <script>document.write(new Date().getFullYear())</script>
+  galleries_per_page: 12
+  related_galleries_per_tag: 5
+
+aws:
+  s3_bucket: "your-bucket-name"
+  cloudfront_dist_id: "your-distribution-id"
+
+editor:
+  host: 127.0.0.1
+  port: 5001
+
+images:
+  # Maximum dimensions for the "display" copy of each photo (full-page view).
+  max_width: 2400
+  max_height: 2400
+  display_quality: 85
+  # Thumbnail (gallery grid) size and quality.
+  thumb_width: 480
+  thumb_height: 480
+  thumb_quality: 80

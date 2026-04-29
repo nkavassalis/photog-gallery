@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ photo.caption or photo.file }} — {{ gallery.meta.title }} - {{ config.website.title }}</title>
+    <link rel="stylesheet" href="{{ path_prefix }}style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+<header>
+    <img src="{{ path_prefix }}images/logo.png" alt="{{ config.website.title }}" class="logo">
+    <p class="subtitle">{{ config.website.subtitle }}</p>
+</header>
+<main>
+    <a href="{{ path_prefix }}galleries/{{ gallery.slug }}.html">← Back to {{ gallery.meta.title }}</a>
+
+    <article class="content photo-page">
+        <figure>
+            <img class="photo-full"
+                 src="{{ path_prefix }}images/galleries/{{ gallery.slug }}/{{ photo.file }}"
+                 alt="{{ photo.caption or photo.file }}">
+            {% if photo.caption %}
+                <figcaption>{{ photo.caption }}</figcaption>
+            {% endif %}
+        </figure>
+    </article>
+
+    <nav class="post-nav" aria-label="Photo navigation">
+        <div class="post-nav-prev">
+            {% if prev_photo %}
+                <a href="{{ path_prefix }}galleries/{{ gallery.slug }}/{{ prev_photo.slug }}.html">
+                    <span class="post-nav-label">← Previous photo</span>
+                    <span class="post-nav-title">{{ prev_photo.caption or prev_photo.file }}</span>
+                </a>
+            {% endif %}
+        </div>
+        <div class="post-nav-next">
+            {% if next_photo %}
+                <a href="{{ path_prefix }}galleries/{{ gallery.slug }}/{{ next_photo.slug }}.html">
+                    <span class="post-nav-label">Next photo →</span>
+                    <span class="post-nav-title">{{ next_photo.caption or next_photo.file }}</span>
+                </a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <a href="{{ path_prefix }}galleries/{{ gallery.slug }}.html">← Back to {{ gallery.meta.title }}</a>
+</main>
+<footer>{{ config.website.footer }}</footer>
+<footer><a href="https://github.com/nkavassalis/photog-gallery">Powered by photog-gallery</a></footer>
+</body>
+</html>

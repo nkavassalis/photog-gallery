@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Galleries tagged "{{ tag.name }}" - {{ config.website.title }}</title>
+    <link rel="alternate" type="application/rss+xml" title="{{ config.website.title }} RSS Feed" href="{{ path_prefix }}feed.xml">
+    <link rel="stylesheet" href="{{ path_prefix }}style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+<header>
+    <img src="{{ path_prefix }}images/logo.png" alt="{{ config.website.title }}" class="logo">
+    <p class="subtitle">{{ config.website.subtitle }}</p>
+</header>
+<main>
+    <a href="{{ path_prefix }}index.html">← Back to all galleries</a>
+
+    <h2 class="section-heading">Galleries tagged &ldquo;{{ tag.name }}&rdquo;</h2>
+
+    <ul class="gallery-list">
+    {% for g in galleries %}
+        <li>
+            <a class="gallery-card" href="{{ path_prefix }}galleries/{{ g.slug }}.html">
+                {% if g.cover %}
+                    <img class="gallery-card-cover"
+                         src="{{ path_prefix }}images/galleries/{{ g.slug }}/thumbs/{{ g.cover }}"
+                         alt="{{ g.meta.title }}">
+                {% else %}
+                    <div class="gallery-card-cover gallery-card-empty"></div>
+                {% endif %}
+                <div class="gallery-card-info">
+                    <span class="gallery-card-title">{{ g.meta.title }}</span>
+                    <span class="gallery-card-meta">
+                        <span class="date">{{ g.meta.date_readable }}</span>
+                        {% if g.photos %}<span>· {{ g.photos|length }} photo{{ '' if g.photos|length == 1 else 's' }}</span>{% endif %}
+                    </span>
+                </div>
+            </a>
+        </li>
+    {% endfor %}
+    </ul>
+
+    <a href="{{ path_prefix }}index.html">← Back to all galleries</a>
+</main>
+<footer>{{ config.website.footer }}</footer>
+<footer><a href="https://github.com/nkavassalis/photog-gallery">Powered by photog-gallery</a></footer>
+</body>
+</html>

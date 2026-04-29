@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>photog-gallery</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+  <script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>
+  <style>
+    body { display: flex; height: 100vh; margin: 0; font-family: sans-serif; background: #1e1e1e; color: #ddd; }
+    #main { flex: 1; display: flex; flex-direction: column; }
+    #editor { flex: 1; }
+    #actions { padding: 10px; background: #2d2d2d; }
+    #preview { flex: 1; overflow-y: auto; padding: 10px; background: #1a1a1a; border-top: 1px solid #333; min-height: 80px; }
+    #divider { flex: 0 0 6px; background: #444; cursor: row-resize; border-top: 1px solid #2a2a2a; border-bottom: 1px solid #2a2a2a; }
+    #divider:hover, #divider.dragging { background: #888; }
+    body.resizing-rows, body.resizing-rows * { cursor: row-resize !important; user-select: none; }
+    #sidebar { width: 320px; flex: 0 0 320px; background: #2d2d2d; display: flex; flex-direction: column; }
+    #galleryContainer { flex: 2; overflow-y: auto; padding: 10px; }
+    #messages { flex: 1; overflow-y: auto; background: #111; color: #ddd; font-family: monospace; padding: 5px; border-top: 1px solid #333; }
+    button { margin: 5px 0; padding: 6px 10px; background: #444; color: #fff; border: none; cursor: pointer; }
+    button:hover { background: #666; }
+    li { margin: 5px 0; cursor: pointer; }
+    li:hover { text-decoration: underline; }
+    .gallery-item { display: flex; justify-content: space-between; gap: 0.5rem; }
+    .gallery-item .count { color: #888; font-size: 0.85em; }
+    .inline { display: inline-block; margin-right: 10px; }
+    label { font-size: 0.9em; margin-left: 5px; }
+    .stdout { color: #0f0; }
+    .stderr { color: #f55; }
+    .status { color: #ff0; }
+    #imagePanel { display: none; background: #222; padding: 10px; border-top: 1px solid #333; overflow-y: auto; max-height: 280px; }
+    #imagePanel h4 { margin: 0 0 0.5rem; font-size: 0.9rem; color: #aaa; text-transform: uppercase; letter-spacing: 0.05em; }
+    .thumb { display: inline-block; margin: 5px; text-align: center; vertical-align: top; }
+    .thumb img { max-width: 110px; max-height: 110px; display: block; margin-bottom: 5px; border-radius: 3px; }
+    .thumb .fname { font-size: 0.7rem; color: #888; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .thumb button { background: #a33; padding: 2px 6px; font-size: 0.75rem; }
+    .thumb button:hover { background: #c55; }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <div id="galleryContainer">
+      <button onclick="newGallery()">+ New Gallery</button>
+      <ul id="galleryList"></ul>
+    </div>
+    <div id="messages"></div>
+  </div>
+  <div id="main">
+    <textarea id="editor"></textarea>
+    <div id="actions">
+      <input type="file" id="imageUpload" class="inline" multiple accept="image/*">
+      <br>
+      <button onclick="saveGallery()">Save</button>
+      <button onclick="deleteGallery()">Delete Gallery</button>
+      <button onclick="regenerate()">Regenerate Site</button>
+      <button onclick="clearLogs()">Clear Logs</button>
+      <button onclick="toggleImages()">Manage Photos</button>
+    </div>
+    <div id="divider" title="Drag to resize"></div>
+    <div id="preview"></div>
+    <div id="imagePanel"></div>
+  </div>
+
+<script>
+let currentFile = null
+let currentSlug = null
+let imagePanelVisible = false
+let savedContent = ""
+
+const editor = new SimpleMDE({
+  element: document.getElementById("editor"),
+  renderingConfig: { singleLineBreaks: false }
+})
+editor.codemirror.setOption("theme", "dracula")
+
+const EDITOR_HEIGHT_KEY = "photogEditorHeight"
+const MIN_EDITOR_HEIGHT = 120
+function setEditorHeight(px) {
+  const max = Math.max(MIN_EDITOR_HEIGHT, window.innerHeight - 200)
+  const clamped = Math.max(MIN_EDITOR_HEIGHT, Math.min(max, px))
+  editor.codemirror.setSize(null, clamped + "px")
+  return clamped
+}
+const saved = parseInt(localStorage.getItem(EDITOR_HEIGHT_KEY) || "", 10)
+setEditorHeight(saved > 0 ? saved : 280)
+
+const divider = document.getElementById("divider")
+let resizeStartY = 0
+let resizeStartHeight = 0
+let resizing = false
+
+divider.addEventListener("mousedown", (e) => {
+  resizing = true
+  resizeStartY = e.clientY
+  resizeStartHeight = editor.codemirror.getWrapperElement().getBoundingClientRect().height
+  divider.classList.add("dragging")
+  document.body.classList.add("resizing-rows")
+  e.preventDefault()
+})
+document.addEventListener("mousemove", (e) => {
+  if (!resizing) return
+  setEditorHeight(resizeStartHeight + (e.clientY - resizeStartY))
+})
+document.addEventListener("mouseup", () => {
+  if (!resizing) return
+  resizing = false
+  divider.classList.remove("dragging")
+  document.body.classList.remove("resizing-rows")
+  const h = editor.codemirror.getWrapperElement().getBoundingClientRect().height
+  localStorage.setItem(EDITOR_HEIGHT_KEY, String(Math.round(h)))
+})
+window.addEventListener("resize", () => {
+  const h = editor.codemirror.getWrapperElement().getBoundingClientRect().height
+  setEditorHeight(h)
+})
+
+function isDirty() {
+  return currentFile != null && editor.value() !== savedContent
+}
+
+function confirmDiscard() {
+  if (!isDirty()) return true
+  return confirm("Are you sure you want to leave this gallery without saving? Changes will be lost.")
+}
+
+function getCurrentTitle() {
+  const c = editor.value()
+  if (!c.startsWith("---")) return null
+  const end = c.indexOf("---", 3)
+  if (end < 0) return null
+  const m = c.slice(3, end).match(/^title:\s*(.+)$/m)
+  return m ? m[1].trim() : null
+}
+
+window.addEventListener("beforeunload", (e) => {
+  if (isDirty()) {
+    e.preventDefault()
+    e.returnValue = ""
+  }
+})
+
+function logMessage(msg, type="status") {
+  const box = document.getElementById("messages")
+  const div = document.createElement("div")
+  div.className = type
+  div.innerHTML = msg.replace(/\n/g, "<br>")
+  box.appendChild(div)
+  box.scrollTop = box.scrollHeight
+}
+
+function clearLogs() {
+  document.getElementById("messages").innerHTML = ""
+}
+
+function loadGalleries() {
+  fetch("/api/galleries").then(r => r.json()).then(galleries => {
+    const ul = document.getElementById("galleryList")
+    ul.innerHTML = ""
+    galleries.forEach(g => {
+      const li = document.createElement("li")
+      li.className = "gallery-item"
+      const left = document.createElement("span")
+      left.textContent = g.title + (g.date ? " (" + g.date + ")" : "")
+      const right = document.createElement("span")
+      right.className = "count"
+      right.textContent = g.photo_count + " photo" + (g.photo_count === 1 ? "" : "s")
+      li.appendChild(left); li.appendChild(right)
+      li.onclick = () => {
+        if (g.filename === currentFile) { loadGallery(g.filename, g.slug); return }
+        if (!confirmDiscard()) return
+        loadGallery(g.filename, g.slug)
+      }
+      ul.appendChild(li)
+    })
+  })
+}
+
+function loadGallery(filename, slug) {
+  fetch("/api/gallery/" + filename).then(r => r.json()).then(data => {
+    currentFile = filename
+    currentSlug = slug
+    editor.value(data.content)
+    savedContent = data.content
+    updatePreview()
+    logMessage("Loaded " + filename, "status")
+    if (imagePanelVisible) loadImages()
+  })
+}
+
+function saveGallery() {
+  if (!currentFile) { logMessage("No gallery loaded.", "stderr"); return }
+  const content = editor.value()
+  fetch("/api/gallery/" + currentFile, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content })
+  }).then(() => {
+    savedContent = content
+    logMessage("Saved " + currentFile, "status")
+    loadGalleries()
+  })
+}
+
+function deleteGallery() {
+  if (!currentFile) { logMessage("No gallery loaded.", "stderr"); return }
+  const label = getCurrentTitle() || currentFile
+  if (!confirm(`Delete gallery "${label}" and all its photos? This cannot be undone.`)) return
+  fetch("/api/delete/" + currentFile, { method: "DELETE" })
+    .then(() => {
+      logMessage("Deleted " + currentFile, "status")
+      currentFile = null
+      currentSlug = null
+      editor.value("")
+      savedContent = ""
+      loadGalleries()
+      hideImages()
+    })
+}
+
+function newGallery() {
+  if (!confirmDiscard()) return
+  const title = prompt("Enter gallery title:")
+  if (!title) return
+  fetch("/api/new", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title })
+  }).then(r => r.json()).then(res => {
+    currentFile = res.filename
+    currentSlug = res.slug
+    loadGalleries()
+    loadGallery(currentFile, currentSlug)
+    logMessage("Created new gallery " + res.filename, "status")
+  })
+}
+
+document.getElementById("imageUpload").addEventListener("change", function() {
+  if (!currentSlug) { logMessage("No gallery loaded.", "stderr"); return }
+  const files = this.files
+  if (!files.length) return
+  const formData = new FormData()
+  for (const f of files) formData.append("files", f)
+  logMessage(`Uploading ${files.length} file${files.length === 1 ? "" : "s"}...`, "status")
+  fetch("/api/upload_image/" + currentSlug, { method: "POST", body: formData })
+    .then(r => r.json()).then(res => {
+      const names = (res.files || []).map(f => f.filename).join(", ")
+      logMessage("Uploaded: " + names, "status")
+      this.value = ""
+      if (imagePanelVisible) loadImages()
+    })
+    .catch(err => logMessage("Upload failed: " + err, "stderr"))
+})
+
+function toggleImages() {
+  if (imagePanelVisible) {
+    hideImages()
+  } else {
+    loadImages()
+  }
+}
+
+function hideImages() {
+  document.getElementById("imagePanel").style.display = "none"
+  document.getElementById("imagePanel").innerHTML = ""
+  imagePanelVisible = false
+}
+
+function loadImages() {
+  if (!currentSlug) {
+    logMessage("Load a gallery first.", "stderr")
+    return
+  }
+  fetch("/api/images/" + currentSlug).then(r => r.json()).then(images => {
+    const panel = document.getElementById("imagePanel")
+    panel.innerHTML = ""
+    const heading = document.createElement("h4")
+    heading.textContent = `Photos in ${currentSlug} (${images.length})`
+    panel.appendChild(heading)
+    if (images.length === 0) {
+      const p = document.createElement("p")
+      p.textContent = "No photos uploaded for this gallery."
+      panel.appendChild(p)
+    } else {
+      images.forEach(img => {
+        const div = document.createElement("div")
+        div.className = "thumb"
+        const image = document.createElement("img")
+        image.src = img.url
+        image.loading = "lazy"
+        const fname = document.createElement("div")
+        fname.className = "fname"
+        fname.textContent = img.filename
+        const btn = document.createElement("button")
+        btn.textContent = "Delete"
+        btn.onclick = () => {
+          if (!confirm(`Delete photo "${img.filename}"?`)) return
+          fetch("/api/delete_image/" + currentSlug + "/" + img.filename, { method: "DELETE" })
+            .then(() => { logMessage("Deleted " + img.filename, "status"); loadImages() })
+        }
+        div.appendChild(image)
+        div.appendChild(fname)
+        div.appendChild(btn)
+        panel.appendChild(div)
+      })
+    }
+    panel.style.display = "block"
+    imagePanelVisible = true
+  })
+}
+
+function updatePreview() {
+  let content = editor.value()
+  if (content.startsWith("---")) {
+    const parts = content.split("---")
+    if (parts.length >= 3) content = parts.slice(2).join("---")
+  }
+  document.getElementById("preview").innerHTML = editor.options.previewRender(content)
+}
+
+editor.codemirror.on("change", updatePreview)
+
+function regenerate() {
+  logMessage("Regenerating site...", "status")
+  fetch("/api/regenerate", { method: "POST" })
+    .then(r => r.json()).then(res => {
+      if (res.stdout) logMessage("STDOUT:\n" + res.stdout, "stdout")
+      if (res.stderr) logMessage("STDERR:\n" + res.stderr, "stderr")
+      logMessage("Done (exit code " + res.returncode + ")", "status")
+    }).catch(err => logMessage("Error: " + err, "stderr"))
+}
+
+loadGalleries()
+</script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ gallery.meta.title }} - {{ config.website.title }}</title>
+    <link rel="stylesheet" href="{{ path_prefix }}style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+<header>
+    <img src="{{ path_prefix }}images/logo.png" alt="{{ config.website.title }}" class="logo">
+    <p class="subtitle">{{ config.website.subtitle }}</p>
+</header>
+<main>
+    <a href="{{ path_prefix }}index.html">← Back to all galleries</a>
+
+    <article class="content">
+        <h1>{{ gallery.meta.title }}</h1>
+        <p class="date">{{ gallery.meta.date_readable }}</p>
+
+        {% if gallery.tags %}
+            <p class="post-tags">
+                {% for tag in gallery.tags %}
+                    <a href="{{ path_prefix }}tags/{{ tag.slug }}.html" class="tag-chip">{{ tag.name }}</a>
+                {% endfor %}
+            </p>
+        {% endif %}
+
+        {% if gallery.meta.description %}
+            <p class="gallery-description">{{ gallery.meta.description }}</p>
+        {% endif %}
+
+        {% if gallery.body_html %}
+            {{ gallery.body_html | safe }}
+        {% endif %}
+
+        <div class="photo-grid">
+        {% for photo in gallery.photos %}
+            <a class="photo-grid-item" href="{{ path_prefix }}galleries/{{ gallery.slug }}/{{ photo.slug }}.html">
+                <img src="{{ path_prefix }}images/galleries/{{ gallery.slug }}/thumbs/{{ photo.file }}"
+                     alt="{{ photo.caption or photo.file }}"
+                     loading="lazy">
+            </a>
+        {% endfor %}
+        </div>
+    </article>
+
+    {% if newer or older %}
+    <nav class="post-nav" aria-label="Gallery navigation">
+        <div class="post-nav-prev">
+            {% if older %}
+                <a href="{{ path_prefix }}galleries/{{ older.slug }}.html">
+                    <span class="post-nav-label">← Previous gallery</span>
+                    <span class="post-nav-title">{{ older.meta.title }}</span>
+                </a>
+            {% endif %}
+        </div>
+        <div class="post-nav-next">
+            {% if newer %}
+                <a href="{{ path_prefix }}galleries/{{ newer.slug }}.html">
+                    <span class="post-nav-label">Next gallery →</span>
+                    <span class="post-nav-title">{{ newer.meta.title }}</span>
+                </a>
+            {% endif %}
+        </div>
+    </nav>
+    {% endif %}
+
+    {% for section in related_sections %}
+    <section class="related-posts">
+        <h3>Other galleries about
+            <a href="{{ path_prefix }}tags/{{ section.tag.slug }}.html">{{ section.tag.name }}</a>
+        </h3>
+        <ul class="post-list">
+        {% for related in section.galleries %}
+            <li>
+                <div class="post-info">
+                    <a href="{{ path_prefix }}galleries/{{ related.slug }}.html">{{ related.meta.title }}</a>
+                    {% if related.meta.description %}
+                        <p class="post-subtitle">{{ related.meta.description }}</p>
+                    {% endif %}
+                </div>
+                <span class="date">{{ related.meta.date_readable }}</span>
+            </li>
+        {% endfor %}
+        </ul>
+    </section>
+    {% endfor %}
+
+    <a href="{{ path_prefix }}index.html">← Back to all galleries</a>
+</main>
+<footer>{{ config.website.footer }}</footer>
+<footer><a href="https://github.com/nkavassalis/photog-gallery">Powered by photog-gallery</a></footer>
+</body>
+</html>

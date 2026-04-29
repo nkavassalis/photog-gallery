@@ -1,0 +1,7 @@
+dist
+config.yaml
+.file_hashes.json
+__pycache__
+*.pyc
+.venv
+venv
