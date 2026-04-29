@@ -52,9 +52,19 @@ header {
     background-color: var(--color-bg-alt-transparent);
 }
 
-.logo {
-    max-width: 180px;
-    margin-bottom: 10px;
+.site-title {
+    display: inline-block;
+    font-family: var(--font-header);
+    font-size: 2.4rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--color-fg-alt);
+    margin-bottom: 0.25rem;
+}
+
+.site-title:hover {
+    text-decoration: none;
+    color: var(--color-bg-accent);
 }
 
 h1 {
@@ -437,7 +447,10 @@ pre {
     max-width: 100%;
     max-height: 85vh;
     height: auto;
-    border-radius: 4px;
+    box-sizing: border-box;
+    border: 6px solid #fff;
+    background: #fff;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .photo-page figcaption {
@@ -472,8 +485,10 @@ body.lightbox-open {
     max-width: 100%;
     max-height: calc(100vh - 6rem);
     object-fit: contain;
+    box-sizing: border-box;
+    border: 6px solid #fff;
+    background: #fff;
     box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
-    border-radius: 3px;
 }
 
 .lightbox button {
