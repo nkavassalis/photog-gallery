@@ -36,7 +36,10 @@
 
         <div class="photo-grid">
         {% for photo in gallery.photos %}
-            <a class="photo-grid-item" href="{{ path_prefix }}galleries/{{ gallery.slug }}/{{ photo.slug }}.html">
+            <a class="photo-grid-item"
+               href="{{ path_prefix }}galleries/{{ gallery.slug }}/{{ photo.slug }}.html"
+               data-full="{{ path_prefix }}images/galleries/{{ gallery.slug }}/{{ photo.file }}"
+               data-caption="{{ photo.caption or '' }}">
                 <img src="{{ path_prefix }}images/galleries/{{ gallery.slug }}/thumbs/{{ photo.file }}"
                      alt="{{ photo.caption or photo.file }}"
                      loading="lazy">
@@ -44,6 +47,17 @@
         {% endfor %}
         </div>
     </article>
+
+    <div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Photo viewer">
+        <button class="lb-close" type="button" aria-label="Close">×</button>
+        <button class="lb-prev" type="button" aria-label="Previous photo">‹</button>
+        <button class="lb-next" type="button" aria-label="Next photo">›</button>
+        <img class="lb-img" alt="">
+        <div class="lb-meta">
+            <span class="lb-caption" hidden></span>
+            <a class="lb-permalink" href="#">permalink</a>
+        </div>
+    </div>
 
     {% if newer or older %}
     <nav class="post-nav" aria-label="Gallery navigation">
@@ -91,5 +105,6 @@
 </main>
 <footer>{{ config.website.footer }}</footer>
 <footer><a href="https://github.com/nkavassalis/photog-gallery">Powered by photog-gallery</a></footer>
+<script src="{{ path_prefix }}lightbox.js" defer></script>
 </body>
 </html>

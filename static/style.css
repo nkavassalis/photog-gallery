@@ -446,3 +446,109 @@ pre {
     font-size: 0.95rem;
 }
 
+/* ---- Lightbox ---- */
+
+body.lightbox-open {
+    overflow: hidden;
+}
+
+.lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.92);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    box-sizing: border-box;
+}
+
+.lightbox[hidden] {
+    display: none;
+}
+
+.lb-img {
+    max-width: 100%;
+    max-height: calc(100vh - 6rem);
+    object-fit: contain;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+    border-radius: 3px;
+}
+
+.lightbox button {
+    position: absolute;
+    background: rgba(20, 20, 20, 0.6);
+    color: var(--color-fg-alt);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    cursor: pointer;
+    border-radius: 50%;
+    transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.lightbox button:hover:not(:disabled) {
+    background: rgba(50, 50, 50, 0.85);
+}
+
+.lightbox button:disabled {
+    opacity: 0.25;
+    cursor: default;
+}
+
+.lb-close {
+    top: 1rem;
+    right: 1rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.lb-prev, .lb-next {
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3rem;
+    height: 3rem;
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.lb-prev { left: 1rem; }
+.lb-next { right: 1rem; }
+
+.lb-meta {
+    position: absolute;
+    left: 50%;
+    bottom: 1rem;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    text-align: center;
+    max-width: calc(100vw - 8rem);
+    color: var(--color-fg-alt);
+}
+
+.lb-caption {
+    font-size: 1rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.lb-permalink {
+    font-size: 0.8rem;
+    color: var(--color-fg-alt-transparent);
+}
+
+.lb-permalink:hover {
+    color: var(--color-bg-accent);
+}
+
+@media (max-width: 600px) {
+    .lightbox { padding: 0.5rem; }
+    .lb-prev { left: 0.25rem; }
+    .lb-next { right: 0.25rem; }
+    .lb-close { top: 0.5rem; right: 0.5rem; }
+}
+
+

@@ -311,7 +311,10 @@ def compute_related_galleries(gallery, tag_index, limit):
 
 
 def copy_static_assets():
-    (OUTPUT_DIR / "style.css").write_text(Path("static/style.css").read_text())
+    static_dir = Path("static")
+    (OUTPUT_DIR / "style.css").write_text((static_dir / "style.css").read_text())
+    for js in static_dir.glob("*.js"):
+        (OUTPUT_DIR / js.name).write_text(js.read_text())
     out_images = OUTPUT_DIR / "images"
     out_images.mkdir(exist_ok=True, parents=True)
     if STATIC_IMG_DIR.exists():
@@ -440,6 +443,8 @@ def collect_input_hashes():
         "config": compute_hash(Path(CONFIG_PATH)),
         "style": compute_hash(Path("static/style.css")),
     }
+    for js in Path("static").glob("*.js"):
+        hashes[f"static/{js.name}"] = compute_hash(js)
     for tpl in TEMPLATE_DIR.glob("*.html"):
         hashes[f"tpl/{tpl.name}"] = compute_hash(tpl)
     for f in GALLERY_DIR.glob("*.md"):

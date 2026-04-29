@@ -6,6 +6,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
   <script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <style>
     body { display: flex; height: 100vh; margin: 0; font-family: sans-serif; background: #1e1e1e; color: #ddd; }
     #main { flex: 1; display: flex; flex-direction: column; }
@@ -29,12 +30,18 @@
     .stdout { color: #0f0; }
     .stderr { color: #f55; }
     .status { color: #ff0; }
-    #imagePanel { display: none; background: #222; padding: 10px; border-top: 1px solid #333; overflow-y: auto; max-height: 280px; }
-    #imagePanel h4 { margin: 0 0 0.5rem; font-size: 0.9rem; color: #aaa; text-transform: uppercase; letter-spacing: 0.05em; }
-    .thumb { display: inline-block; margin: 5px; text-align: center; vertical-align: top; }
-    .thumb img { max-width: 110px; max-height: 110px; display: block; margin-bottom: 5px; border-radius: 3px; }
-    .thumb .fname { font-size: 0.7rem; color: #888; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .thumb button { background: #a33; padding: 2px 6px; font-size: 0.75rem; }
+    #imagePanel { display: none; background: #222; padding: 10px; border-top: 1px solid #333; overflow-y: auto; max-height: 360px; }
+    #imagePanel h4 { margin: 0 0 0.25rem; font-size: 0.9rem; color: #aaa; text-transform: uppercase; letter-spacing: 0.05em; }
+    #imagePanel .hint { margin: 0 0 0.5rem; font-size: 0.75rem; color: #777; }
+    #thumbList { display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 0; list-style: none; min-height: 60px; }
+    .thumb { width: 130px; display: flex; flex-direction: column; padding: 4px; background: #1a1a1a; border: 1px solid #333; border-radius: 4px; cursor: grab; }
+    .thumb.sortable-ghost { opacity: 0.4; }
+    .thumb.sortable-chosen { cursor: grabbing; }
+    .thumb img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; border-radius: 3px; }
+    .thumb .fname { font-size: 0.65rem; color: #888; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .thumb .caption-input { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 3px 4px; background: #111; color: #ddd; border: 1px solid #333; border-radius: 3px; font-size: 0.75rem; cursor: text; }
+    .thumb .caption-input:focus { outline: none; border-color: #99ccff; }
+    .thumb button { margin-top: 4px; background: #a33; padding: 2px 6px; font-size: 0.7rem; cursor: pointer; }
     .thumb button:hover { background: #c55; }
   </style>
 </head>
@@ -248,6 +255,7 @@ document.getElementById("imageUpload").addEventListener("change", function() {
       logMessage("Uploaded: " + names, "status")
       this.value = ""
       if (imagePanelVisible) loadImages()
+      reloadEditorIfClean()
     })
     .catch(err => logMessage("Upload failed: " + err, "stderr"))
 })
@@ -266,6 +274,20 @@ function hideImages() {
   imagePanelVisible = false
 }
 
+let thumbSortable = null
+
+function reloadEditorIfClean() {
+  // After a photo-side mutation we want the markdown editor to reflect the
+  // new on-disk state, but only if the user hasn't started editing the
+  // markdown — otherwise we'd clobber their unsaved work.
+  if (!currentFile || isDirty()) return
+  fetch("/api/gallery/" + currentFile).then(r => r.json()).then(data => {
+    editor.value(data.content)
+    savedContent = data.content
+    updatePreview()
+  })
+}
+
 function loadImages() {
   if (!currentSlug) {
     logMessage("Load a gallery first.", "stderr")
@@ -274,39 +296,112 @@ function loadImages() {
   fetch("/api/images/" + currentSlug).then(r => r.json()).then(images => {
     const panel = document.getElementById("imagePanel")
     panel.innerHTML = ""
+
     const heading = document.createElement("h4")
     heading.textContent = `Photos in ${currentSlug} (${images.length})`
     panel.appendChild(heading)
+
     if (images.length === 0) {
       const p = document.createElement("p")
       p.textContent = "No photos uploaded for this gallery."
       panel.appendChild(p)
     } else {
+      const hint = document.createElement("p")
+      hint.className = "hint"
+      hint.textContent = "Drag thumbs to reorder. Captions are optional — leave blank for galleries without them."
+      panel.appendChild(hint)
+
+      const list = document.createElement("ul")
+      list.id = "thumbList"
+      panel.appendChild(list)
+
       images.forEach(img => {
-        const div = document.createElement("div")
-        div.className = "thumb"
+        const li = document.createElement("li")
+        li.className = "thumb"
+        li.dataset.filename = img.filename
+
         const image = document.createElement("img")
         image.src = img.url
         image.loading = "lazy"
+
         const fname = document.createElement("div")
         fname.className = "fname"
         fname.textContent = img.filename
+        fname.title = img.filename
+
+        const cap = document.createElement("input")
+        cap.type = "text"
+        cap.className = "caption-input"
+        cap.placeholder = "caption (optional)"
+        cap.value = img.caption || ""
+        cap.dataset.original = img.caption || ""
+        cap.addEventListener("mousedown", (e) => e.stopPropagation())
+        cap.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { e.preventDefault(); cap.blur() }
+          if (e.key === "Escape") { cap.value = cap.dataset.original; cap.blur() }
+        })
+        cap.addEventListener("blur", () => saveCaption(img.filename, cap))
+
         const btn = document.createElement("button")
         btn.textContent = "Delete"
+        btn.addEventListener("mousedown", (e) => e.stopPropagation())
         btn.onclick = () => {
           if (!confirm(`Delete photo "${img.filename}"?`)) return
           fetch("/api/delete_image/" + currentSlug + "/" + img.filename, { method: "DELETE" })
-            .then(() => { logMessage("Deleted " + img.filename, "status"); loadImages() })
+            .then(() => {
+              logMessage("Deleted " + img.filename, "status")
+              loadImages()
+              reloadEditorIfClean()
+            })
         }
-        div.appendChild(image)
-        div.appendChild(fname)
-        div.appendChild(btn)
-        panel.appendChild(div)
+
+        li.appendChild(image)
+        li.appendChild(fname)
+        li.appendChild(cap)
+        li.appendChild(btn)
+        list.appendChild(li)
+      })
+
+      if (thumbSortable) thumbSortable.destroy()
+      thumbSortable = Sortable.create(list, {
+        animation: 150,
+        ghostClass: "sortable-ghost",
+        chosenClass: "sortable-chosen",
+        onEnd: persistOrder,
       })
     }
+
     panel.style.display = "block"
     imagePanelVisible = true
   })
+}
+
+function persistOrder() {
+  const list = document.getElementById("thumbList")
+  if (!list) return
+  const order = Array.from(list.children).map(li => li.dataset.filename)
+  fetch(`/api/photos/${currentSlug}/reorder`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ order }),
+  }).then(r => r.json()).then(() => {
+    logMessage("Reordered photos.", "status")
+    reloadEditorIfClean()
+  }).catch(err => logMessage("Reorder failed: " + err, "stderr"))
+}
+
+function saveCaption(filename, input) {
+  const val = input.value.trim()
+  if (val === (input.dataset.original || "")) return
+  fetch(`/api/photos/${currentSlug}/${filename}/caption`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ caption: val }),
+  }).then(r => r.json()).then(() => {
+    input.dataset.original = val
+    logMessage(`Caption saved: ${filename}`, "status")
+    reloadEditorIfClean()
+  }).catch(err => logMessage("Caption save failed: " + err, "stderr"))
 }
 
 function updatePreview() {
